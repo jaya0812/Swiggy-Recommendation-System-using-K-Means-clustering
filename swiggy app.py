@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.cluster import KMeans
 import random
@@ -11,7 +12,8 @@ import pickle
 @st.cache_data
 def load_data():
     df = pd.read_csv(r"D:\Guvi project 3\cleaned_data.csv")
-
+    df['cuisine'] = df['cuisine'].astype(str).str.strip()
+    df['cuisine'] = df['cuisine'].replace("nan", None)
     # OneHotEncode categorical columns
     encoder = OneHotEncoder(sparse_output=False)
     cat_features = encoder.fit_transform(df[['cuisine', 'city']])
@@ -20,7 +22,8 @@ def load_data():
     # Combine numerical + categorical
     num_df = df[['rating', 'rating_count', 'cost']].reset_index(drop=True)
     final_df = pd.concat([num_df, cat_df], axis=1)
-
+    final_df['rating_count'] = final_df['rating_count'].astype(float) 
+    final_df['cost'] = final_df['cost'].astype(float) 
     # Standardize numerical features
     scaler = StandardScaler()
     final_df.loc[:, ['rating', 'rating_count', 'cost']] = scaler.fit_transform(final_df[['rating', 'rating_count', 'cost']])
@@ -28,6 +31,9 @@ def load_data():
     return df, final_df
 
 df, final_df = load_data()
+
+df.cuisine=np.where((df.cuisine.str.len())>20,"",df.cuisine)
+
 
 # ✅ Export dataset as pickle file
 pickle_path = r"D:\Guvi project 3\final_encoded.pkl"
@@ -87,7 +93,7 @@ st.sidebar.header("🔍 Filter your preferences")
 selected_city = st.sidebar.selectbox("Select City:", sorted(df['city'].unique()))
 price_range = st.sidebar.slider("Select Price Range (₹):", 0, int(df['cost'].max()), (200, 800))
 min_rating = st.sidebar.slider("Minimum Rating:", 0.0, 5.0, 3.5, 0.1)
-selected_cuisine=st.sidebar.selectbox("Select Cuisine:", sorted(df['cuisine'].unique()))
+selected_cuisine=st.sidebar.selectbox("Select Cuisine:", sorted(df['cuisine'].dropna().astype(str).unique()))
 
 # Main recommendation button
 if st.sidebar.button("Find Restaurants"):
@@ -100,9 +106,4 @@ if st.sidebar.button("Find Restaurants"):
         st.success(f"✨ Based on your preferences, here are restaurants similar to **{selected_restaurant}**:")
         st.dataframe(recs)
 
-# ----------------------------
-# STEP 5: Optional Cluster Summary
-# ----------------------------
-# with st.expander("📊 View Cluster Summary"):
-#     cluster_summary = df.groupby('cluster')[['rating', 'cost']].mean().reset_index()
-#     st.dataframe(cluster_summary)
+
